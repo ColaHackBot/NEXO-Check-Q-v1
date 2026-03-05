@@ -10,9 +10,9 @@
   <!-- ICONS & FAVICON CONFIGURATION                -->
   <!-- ============================================ -->
   <!-- ใช้รูปเดียวกันสำหรับทุกขนาด favicon และ apple touch icon -->
-  <link id="apple-touch-icon" rel="apple-touch-icon" href="https://img2.pic.in.th/pic/NEXO-SHOP-2-Photoroom.png">
-  <link id="icon-192" rel="icon" sizes="192x192" href="https://img2.pic.in.th/pic/NEXO-SHOP-2-Photoroom.png">
-  <link id="shortcut-icon" rel="shortcut icon" href="https://img2.pic.in.th/pic/NEXO-SHOP-2-Photoroom.png">
+  <link id="apple-touch-icon" rel="apple-touch-icon" href="https://img5.pic.in.th/file/secure-sv1/227375.jpg">
+  <link id="icon-192" rel="icon" sizes="192x192" href="https://img5.pic.in.th/file/secure-sv1/227375.jpg">
+  <link id="shortcut-icon" rel="shortcut icon" href="https://img5.pic.in.th/file/secure-sv1/227375.jpg">
 
   <!-- ============================================ -->
   <!-- FONT FAMILY LINKS (THAI FONTS) -->
@@ -144,7 +144,7 @@
   <!-- หมายเหตุ: ต้องเปลี่ยน WEB_APP_URL เป็น URL ของ Google Apps Script จริง -->
   <script>
     window.APP_CONFIG = {
-      WEB_APP_URL: "https://script.google.com/macros/s/AKfycbysyvJ-QFa45loGIcj5-CTDb-j9XLV69GYwcb9m_Ab2QOGdyocE1CI0HXJjkUmaXXk7fQ/exec"
+      WEB_APP_URL: "https://script.google.com/macros/s/AKfycbzvS8K2tZT4IBii48dltiWaPgtqUjSbnYEk3YRqGl4InJVKWDP-Q0NeIhhtrkqWexINMQ/exec"
     };
 
     /* Helper function for API calls */
@@ -1229,7 +1229,7 @@
         window.addEventListener('resize', resize);
 
         // สร้างอนุภาค 150 จุดแบบสุ่ม
-        const dots = Array.from({ length: 150 }, () => ({
+        const dots = Array.from({ length: 50 }, () => ({
           x: Math.random() * canvas.width,
           y: Math.random() * canvas.height,
           vx: (Math.random() - 0.5) * 0.25,
@@ -1957,6 +1957,19 @@
               if (d.lockedNextDate) setSelectedNextDate(d.lockedNextDate);
               if (d.siteTitle) { setSiteTitle(d.siteTitle); document.title = d.siteTitle; }
               if (d.favicon) { setFavicon(d.favicon); updateFavicon(d.favicon); }
+
+              // โหลดธีมที่บันทึกไว้
+              if (d.theme) {
+                setUITheme(d.theme);
+                localStorage.setItem('uiTheme', d.theme);
+                const theme = UI_THEMES.find(th => th.id === d.theme);
+                if (theme) {
+                  document.documentElement.style.setProperty('--bg-from', theme.bgFrom);
+                  document.documentElement.style.setProperty('--bg-to', theme.bgTo);
+                  document.documentElement.style.setProperty('--accent', theme.accent);
+                  document.documentElement.style.setProperty('--accent2', theme.accent2);
+                }
+              }
             }
             setIsLoading(false);
           })
@@ -2058,9 +2071,23 @@
         setShowModal(false); setEditingTask(null);
       };
 
-      /* เปลี่ยนธีม UI */
-      const handleUIThemeChange = (id) => {
-        setUITheme(id); localStorage.setItem('uiTheme', id);
+      /* เปลี่ยนธีม UI และบันทึกลง Google Sheets */
+      const handleUIThemeChange = async (id) => {
+        setUITheme(id);
+        localStorage.setItem('uiTheme', id);
+
+        // บันทึกลง Google Sheets
+        try {
+          await fetchAPI({
+            action: 'saveTheme',
+            theme: id
+          });
+          showToast('บันทึกธีมเรียบร้อย ✓');
+        } catch (error) {
+          console.error('Failed to save theme:', error);
+          showToast('ไม่สามารถบันทึกธีมได้', 'error');
+        }
+
         const theme = UI_THEMES.find(th => th.id === id);
         if (theme) {
           document.documentElement.style.setProperty('--bg-from', theme.bgFrom);
