@@ -144,7 +144,7 @@
   <!-- หมายเหตุ: ต้องเปลี่ยน WEB_APP_URL เป็น URL ของ Google Apps Script จริง -->
   <script>
     window.APP_CONFIG = {
-      WEB_APP_URL: "https://script.google.com/macros/s/AKfycbzvS8K2tZT4IBii48dltiWaPgtqUjSbnYEk3YRqGl4InJVKWDP-Q0NeIhhtrkqWexINMQ/exec"
+      WEB_APP_URL: "https://script.google.com/macros/s/AKfycbxo1dzM1fJxBvqy8OGgJA1LaiTRf1C6Cer39rBzTqRcTeYSlmTt5eU0uIYNh2WQF5JzYg/exec"
     };
 
     /* Helper function for API calls */
@@ -1923,14 +1923,31 @@
       const accent2 = currentTheme.accent2;                    // สีรอง
       const uiClass = currentTheme.class || '';                // class เพิ่มเติม
 
-      /* อัปเดต favicon */
-      const updateFavicon = useCallback(url => {
-        ['apple-touch-icon', 'icon-192', 'shortcut-icon'].forEach(id => { const el = document.getElementById(id); if (el) el.href = url; });
+      /* ✅ อัปเดต Favicon ทุกรูปแบบ */
+      const updateFavicon = useCallback((url) => {
+        // อัปเดต favicon ทุกแบบ
+        const favicons = ['apple-touch-icon', 'icon-192', 'shortcut-icon'];
+        favicons.forEach(id => {
+          const el = document.getElementById(id);
+          if (el) {
+            el.href = url;
+            console.log(`Updated ${id} to:`, url);
+          }
+        });
+
+      // อัปเดต favicon แบบมาตรฐาน (fallback)
+        let link = document.querySelector("link[rel*='icon']");
+        if (!link) {
+          link = document.createElement('link');
+          link.rel = 'icon';
+          document.head.appendChild(link);
+        }
+        link.href = url;
       }, []);
 
-      /* ========================================== */
+      /* ============================================ */
       /* INITIALIZATION (useEffect)                  */
-      /* ========================================== */
+      /* ============================================ */
       /* โหลดค่าที่บันทึกไว้จาก localStorage */
       useEffect(() => {
         const savedTheme = localStorage.getItem('uiTheme');
@@ -1955,8 +1972,18 @@
               if (d.bannerImage) setBannerImage(d.bannerImage);
               if (d.bannerVisible !== undefined) setIsBannerVisible(d.bannerVisible);
               if (d.lockedNextDate) setSelectedNextDate(d.lockedNextDate);
-              if (d.siteTitle) { setSiteTitle(d.siteTitle); document.title = d.siteTitle; }
-              if (d.favicon) { setFavicon(d.favicon); updateFavicon(d.favicon); }
+
+              // ✅ โหลด Site Title และ Favicon
+              if (d.siteTitle) {
+                setSiteTitle(d.siteTitle);
+                document.title = d.siteTitle;
+                document.getElementById('site-title').textContent = d.siteTitle;
+              }
+
+              if (d.favicon) {
+                setFavicon(d.favicon);
+                updateFavicon(d.favicon);
+              }
 
               // โหลดธีมที่บันทึกไว้
               if (d.theme) {
@@ -2011,9 +2038,9 @@
         return today;
       }, [tasks, selectedNextDate, today]);
 
-      /* ========================================== */
+      /* ============================================ */
       /* CALLBACK FUNCTIONS                          */
-      /* ========================================== */
+      /* ============================================ */
       /* เปลี่ยนสถานะงาน (done/todo) */
       const toggleStatus = useCallback((e, id) => {
         e.stopPropagation();
@@ -2039,18 +2066,40 @@
       }, []);
 
       /* บันทึก favicon */
-      const handleSaveFavicon = useCallback(async url => {
-        setFavicon(url); updateFavicon(url);
-        await fetchAPI({ action: 'saveFavicon', faviconUrl: url });
-        showToast(t.toastSaved);
-      }, [updateFavicon, showToast, t]);
+      const handleSaveFavicon = useCallback(async (url) => {
+        if (!url) return;
+
+        setFavicon(url);
+        updateFavicon(url);
+
+        // บันทึกลง Google Sheets
+        const res = await fetchAPI({ action: 'saveFavicon', faviconUrl: url });
+        if (res.status === 'success') {
+          showToast('บันทึก favicon แล้ว ✓');
+        } else {
+          showToast('ไม่สามารถบันทึก favicon ได้', 'error');
+        }
+      }, [updateFavicon, showToast]);
 
       /* บันทึกชื่อเว็บ */
-      const handleSaveSiteTitle = useCallback(async title => {
-        setSiteTitle(title); document.title = title;
-        await fetchAPI({ action: 'saveSiteTitle', title });
-        showToast(t.toastSaved);
-      }, [showToast, t]);
+      const handleSaveSiteTitle = useCallback(async (title) => {
+        if (!title) return;
+
+        setSiteTitle(title);
+        document.title = title;
+
+        // อัปเดต title tag
+        const titleEl = document.getElementById('site-title');
+        if (titleEl) titleEl.textContent = title;
+
+        // บันทึกลง Google Sheets
+        const res = await fetchAPI({ action: 'saveSiteTitle', title });
+        if (res.status === 'success') {
+          showToast('บันทึกชื่อเว็บแล้ว ✓');
+        } else {
+          showToast('ไม่สามารถบันทึกชื่อเว็บได้', 'error');
+        }
+      }, [showToast]);
 
       /* บันทึกงาน (เพิ่ม/แก้ไข) */
       const handleSaveTask = async (taskData) => {
@@ -2058,7 +2107,7 @@
         const res = await fetchAPI({ action: 'saveOrUpdateTask', task: taskData });
         if (res.status === 'success') {
           setTasks(prev => isEdit ? prev.map(tk => tk.id === res.task.id ? res.task : tk) : [...prev, res.task]);
-          showToast(isEdit ? t.toastUpdated : t.toastCreated); // ✨ Toast!
+          showToast(isEdit ? t.toastUpdated : t.toastCreated);
         }
         setShowModal(false); setEditingTask(null);
       };
@@ -2067,7 +2116,7 @@
       const handleDeleteTask = async (id) => {
         await fetchAPI({ action: 'deleteTask', taskId: id });
         setTasks(prev => prev.filter(tk => tk.id !== id));
-        showToast(t.toastDeleted, 'error'); // ✨ Toast!
+        showToast(t.toastDeleted, 'error');
         setShowModal(false); setEditingTask(null);
       };
 
